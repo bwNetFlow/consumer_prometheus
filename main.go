@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	kafka "github.com/bwNetFlow/kafkaconnector"
 )
@@ -31,18 +32,19 @@ var kafkaConn = kafka.Connector{}
 var promExporter = Exporter{}
 
 func main() {
-
 	flag.Parse()
-	if *logFile != "" {
-		logfile, err := os.OpenFile(*logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-		if err != nil {
-			println("Error opening file for logging: %v", err)
-			return
-		}
-		defer logfile.Close()
-		mw := io.MultiWriter(os.Stdout, logfile)
-		log.SetOutput(mw)
+	var err error
+
+	// initialize logger
+	logfile, err := os.OpenFile(*logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		println("Error opening file for logging: %v", err)
+		return
 	}
+	defer logfile.Close()
+	mw := io.MultiWriter(os.Stdout, logfile)
+	log.SetOutput(mw)
+	log.Println("-------------------------- Started.")
 
 	// catch termination signal
 	signals := make(chan os.Signal, 1)
@@ -70,16 +72,23 @@ func main() {
 		} else if *kafkaUser != "" {
 			kafkaConn.SetAuth(*kafkaUser, *kafkaPass)
 		} else {
-			err := kafkaConn.SetAuthFromEnv()
+			log.Println("No explicit credentials available, trying env.")
+			err = kafkaConn.SetAuthFromEnv()
 			if err != nil {
-				log.Println("No Credentials available, using 'anon:anon'.")
+				log.Println("No credentials available, using 'anon:anon'.")
 				kafkaConn.SetAuthAnon()
 			}
 		}
 	}
 
 	// Establish Kafka Connection
-	kafkaConn.StartConsumer(*kafkaBroker, []string{*kafkaInTopic}, *kafkaConsumerGroup, -1)
+	err = kafkaConn.StartConsumer(*kafkaBroker, []string{*kafkaInTopic}, *kafkaConsumerGroup, -1)
+	if err != nil {
+		log.Println("StartConsumer:", err)
+		// sleep to make auto restart not too fast and spamming connection retries
+		time.Sleep(5 * time.Second)
+		return
+	}
 	defer kafkaConn.Close()
 
 	// handle kafka flow messages in foreground
