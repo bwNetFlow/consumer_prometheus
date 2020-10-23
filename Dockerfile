@@ -11,4 +11,4 @@ WORKDIR /
 
 # COPY binary from previous stage to your desired location
 COPY --from=builder /opt/build/consumer_prometheus .
-ENTRYPOINT /consumer --kafka.brokers $KAFKA_BROKERS --kafka.topic $KAFKA_TOPIC --kafka.consumer_group $KAFKA_CONSUMER_GROUP --kafka.user $KAFKA_USER --kafka.pass $KAFKA_PASS
+ENTRYPOINT /consumer_prometheus --kafka.brokers $KAFKA_BROKERS --kafka.topic $KAFKA_TOPIC --kafka.consumer_group $KAFKA_CONSUMER_GROUP --kafka.user $KAFKA_USER --kafka.pass $KAFKA_PASS
