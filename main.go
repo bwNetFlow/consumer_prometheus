@@ -21,6 +21,9 @@ var (
 	kafkaBroker        = flag.String("kafka.brokers", "127.0.0.1:9092,[::1]:9092", "Kafka brokers separated by commas")
 	kafkaUser          = flag.String("kafka.user", "", "Kafka username to authenticate with")
 	kafkaPass          = flag.String("kafka.pass", "", "Kafka password to authenticate with")
+	kafkaAuthAnon      = flag.Bool("kafka.auth_anon", false, "Set Kafka Auth Anon")
+	kafkaDisableTLS    = flag.Bool("kafka.disable_tls", false, "Whether to use tls or not")
+	kafkaDisableAuth   = flag.Bool("kafka.disable_auth", false, "Whether to use auth or not")
 )
 
 // KafkaConn holds the global kafka connection
@@ -53,11 +56,26 @@ func main() {
 	// Enable Prometheus Export
 	promExporter.Initialize(":8080")
 
-	// Set kafka auth
-	if *kafkaUser != "" {
-		kafkaConn.SetAuth(*kafkaUser, *kafkaPass)
-	} else {
-		kafkaConn.SetAuthAnon()
+	// disable TLS if requested
+	if *kafkaDisableTLS {
+		log.Println("kafkaDisableTLS ...")
+		kafkaConn.DisableTLS()
+	}
+	if *kafkaDisableAuth {
+		log.Println("kafkaDisableAuth ...")
+		kafkaConn.DisableAuth()
+	} else { // set Kafka auth
+		if *kafkaAuthAnon {
+			kafkaConn.SetAuthAnon()
+		} else if *kafkaUser != "" {
+			kafkaConn.SetAuth(*kafkaUser, *kafkaPass)
+		} else {
+			err := kafkaConn.SetAuthFromEnv()
+			if err != nil {
+				log.Println("No Credentials available, using 'anon:anon'.")
+				kafkaConn.SetAuthAnon()
+			}
+		}
 	}
 
 	// Establish Kafka Connection
