@@ -92,7 +92,7 @@ func main() {
 	defer kafkaConn.Close()
 
 	// handle kafka flow messages in foreground
-	for {
-		promExporter.Increment(<-kafkaConn.ConsumerChannel())
+	for flow := range kafkaConn.ConsumerChannel() {
+		promExporter.Increment(flow)
 	}
 }
