@@ -1,4 +1,4 @@
-package main
+package exporter
 
 import (
 	"fmt"
@@ -14,16 +14,6 @@ import (
 
 var (
 	// Meta Monitoring Data, to be added to default /metrics
-	kafkaMessageCount = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Name: "kafka_messages_total",
-			Help: "Number of Kafka messages",
-		})
-	kafkaOffsets = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "kafka_offset_current",
-			Help: "Current Kafka Offset of the consumer",
-		}, []string{"topic", "partition"})
 
 	// Flow Data, to be exported on /flowdata
 	labels = []string{
@@ -38,26 +28,48 @@ var (
 		"remoteas",
 		"remotecountry",
 	}
-	flowBits = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "flow_bits",
-			Help: "Number of Bits received across Flows.",
-		}, labels)
 )
 
 // Exporter provides export features to Prometheus
 type Exporter struct {
+	FlowReg *prometheus.Registry
+
+	kafkaMessageCount prometheus.Counter
+	kafkaOffsets      *prometheus.CounterVec
+	flowBits          *prometheus.CounterVec
 }
 
-// Initialize Prometheus Exporter, listen on addr with path /metrics and /flowdata
-func (exporter *Exporter) Initialize(addr string) {
-	prometheus.MustRegister(kafkaMessageCount, kafkaOffsets)
+// Initialize Prometheus Exporter
+func (e *Exporter) Initialize() {
+	// The Kafka metrics are added to the global registry.
+	e.kafkaMessageCount = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "kafka_messages_total",
+			Help: "Number of Kafka messages",
+		})
+	e.kafkaOffsets = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "kafka_offset_current",
+			Help: "Current Kafka Offset of the consumer",
+		}, []string{"topic", "partition"})
+	prometheus.MustRegister(e.kafkaMessageCount, e.kafkaOffsets)
 
-	flowReg := prometheus.NewRegistry()
-	flowReg.MustRegister(flowBits)
+	// Flows are stored in a separate Registry
+	e.flowBits = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "flow_bits",
+			Help: "Number of Bits received across Flows.",
+		}, labels)
 
+	e.FlowReg = prometheus.NewRegistry()
+	e.FlowReg.MustRegister(e.flowBits)
+
+}
+
+// listen on addr with path /metrics and /flowdata
+func (e *Exporter) ServeEndpoints(addr string) {
 	http.Handle("/metrics", promhttp.Handler())
-	http.Handle("/flowdata", promhttp.HandlerFor(flowReg, promhttp.HandlerOpts{}))
+	http.Handle("/flowdata", promhttp.HandlerFor(e.FlowReg, promhttp.HandlerOpts{}))
 
 	go func() {
 		http.ListenAndServe(addr, nil)
@@ -65,7 +77,7 @@ func (exporter *Exporter) Initialize(addr string) {
 	log.Println("Enabled Prometheus /metrics and /flowdata endpoints.")
 }
 
-func (exporter *Exporter) Increment(flow *flow.FlowMessage) {
+func (e *Exporter) Increment(flow *flow.FlowMessage) {
 	var application string
 	_, appGuess1 := filterPopularPorts(flow.GetSrcPort())
 	_, appGuess2 := filterPopularPorts(flow.GetDstPort())
@@ -98,18 +110,18 @@ func (exporter *Exporter) Increment(flow *flow.FlowMessage) {
 		"remotecountry": flow.GetRemoteCountry(),
 	}
 
-	kafkaMessageCount.Inc()
+	e.kafkaMessageCount.Inc()
 	// flowNumber.With(labels).Add(float64(flow.GetSamplingRate()))
 	// flowPackets.With(labels).Add(float64(flow.GetPackets()))
-	flowBits.With(labels).Add(float64(flow.GetBytes()) * 8)
+	e.flowBits.With(labels).Add(float64(flow.GetBytes()) * 8)
 }
 
-func (exporter *Exporter) IncrementCtrl(topic string, partition int32, offset int64) {
+func (e *Exporter) IncrementCtrl(topic string, partition int32, offset int64) {
 	labels := prometheus.Labels{
 		"topic":     topic,
 		"partition": fmt.Sprint(partition),
 	}
-	kafkaOffsets.With(labels).Add(float64(offset))
+	e.kafkaOffsets.With(labels).Add(float64(offset))
 }
 
 func filterPopularPorts(port uint32) (uint32, string) {

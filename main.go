@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/bwNetFlow/consumer_prometheus/exporter"
 	kafka "github.com/bwNetFlow/kafkaconnector"
 )
 
@@ -29,7 +30,7 @@ var (
 
 // KafkaConn holds the global kafka connection
 var kafkaConn = kafka.Connector{}
-var promExporter = Exporter{}
+var promExporter = exporter.Exporter{}
 
 func main() {
 	flag.Parse()
@@ -56,7 +57,8 @@ func main() {
 	}()
 
 	// Enable Prometheus Export
-	promExporter.Initialize(":8080")
+	promExporter.Initialize()
+	promExporter.ServeEndpoints(":8080")
 
 	// disable TLS if requested
 	if *kafkaDisableTLS {
