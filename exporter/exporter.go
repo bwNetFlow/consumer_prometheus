@@ -13,12 +13,8 @@ import (
 )
 
 var (
-	// Meta Monitoring Data, to be added to default /metrics
-
 	// Flow Data, to be exported on /flowdata
 	labels = []string{
-		// "src_port",
-		// "dst_port",
 		"router",
 		"ipversion",
 		"application",
@@ -98,8 +94,6 @@ func (e *Exporter) Increment(flow *flow.FlowMessage) {
 	}
 
 	labels := prometheus.Labels{
-		// "src_port":      fmt.Sprint(srcPort),
-		// "dst_port":      fmt.Sprint(dstPort),
 		"router":        net.IP(flow.GetSamplerAddress()).String(),
 		"ipversion":     hflow.IPVersionString(),
 		"application":   application,
@@ -111,8 +105,6 @@ func (e *Exporter) Increment(flow *flow.FlowMessage) {
 	}
 
 	e.kafkaMessageCount.Inc()
-	// flowNumber.With(labels).Add(float64(flow.GetSamplingRate()))
-	// flowPackets.With(labels).Add(float64(flow.GetPackets()))
 	e.flowBits.With(labels).Add(float64(flow.GetBytes()) * 8)
 }
 
@@ -124,7 +116,7 @@ func (e *Exporter) IncrementCtrl(topic string, partition int32, offset int64) {
 	e.kafkaOffsets.With(labels).Add(float64(offset))
 }
 
-func filterPopularPorts(port uint32)  string {
+func filterPopularPorts(port uint32) string {
 	switch port {
 	case 80:
 		return "http"
