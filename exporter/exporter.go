@@ -79,8 +79,8 @@ func (e *Exporter) ServeEndpoints(addr string) {
 
 func (e *Exporter) Increment(flow *flow.FlowMessage) {
 	var application string
-	_, appGuess1 := filterPopularPorts(flow.GetSrcPort())
-	_, appGuess2 := filterPopularPorts(flow.GetDstPort())
+	appGuess1 := filterPopularPorts(flow.GetSrcPort())
+	appGuess2 := filterPopularPorts(flow.GetDstPort())
 	if appGuess1 != "" {
 		application = appGuess1
 	} else if appGuess2 != "" {
@@ -124,28 +124,28 @@ func (e *Exporter) IncrementCtrl(topic string, partition int32, offset int64) {
 	e.kafkaOffsets.With(labels).Add(float64(offset))
 }
 
-func filterPopularPorts(port uint32) (uint32, string) {
+func filterPopularPorts(port uint32)  string {
 	switch port {
 	case 80:
-		return port, "http"
+		return "http"
 	case 443:
-		return port, "https"
+		return "https"
 	case 20, 21:
-		return port, "ftp"
+		return "ftp"
 	case 22:
-		return port, "ssh"
+		return "ssh"
 	case 23:
-		return port, "telnet"
+		return "telnet"
 	case 53:
-		return port, "dns"
+		return "dns"
 	case 25, 465:
-		return port, "smtp"
+		return "smtp"
 	case 110, 995:
-		return port, "pop3"
+		return "pop3"
 	case 143, 993:
-		return port, "imap"
+		return "imap"
 	}
-	return 0, ""
+	return ""
 }
 
 func nameThatAS(asn uint32) string {
