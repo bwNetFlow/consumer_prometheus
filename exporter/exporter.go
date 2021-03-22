@@ -75,17 +75,17 @@ func (e *Exporter) ServeEndpoints(addr string) {
 
 func (e *Exporter) Increment(flow *flow.FlowMessage) {
 	var application string
-	appGuess1 := filterPopularPorts(flow.GetSrcPort())
-	appGuess2 := filterPopularPorts(flow.GetDstPort())
-	if appGuess1 != "" {
-		application = appGuess1
-	} else if appGuess2 != "" {
-		application = appGuess2
+	if srcApp := filterPopularPorts(flow.GetSrcPort()); srcApp != "" {
+		application = srcApp
+	} else {
+		dstApp := filterPopularPorts(flow.GetDstPort())
+		application = dstApp
 	}
 
 	hflow := flow_helper.NewFlowHelper(flow)
 
 	peer := hflow.Peer()
+
 	var remoteAS string
 	if flow.GetFlowDirection() == 0 {
 		remoteAS = nameThatAS(flow.GetSrcAS())
